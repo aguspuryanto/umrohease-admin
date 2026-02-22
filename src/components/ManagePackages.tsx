@@ -1,9 +1,9 @@
-import React from 'react';
-import { Plus, Search, Edit2, Trash2, MoreVertical, Filter } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Search, Edit2, Trash2, MoreVertical, Filter, X } from 'lucide-react';
 import { UmrohPackage } from '../types';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
-const mockPackages: UmrohPackage[] = [
+const initialPackages: UmrohPackage[] = [
   { 
     id: '1', 
     name: 'Paket Ramadhan Gold', 
@@ -39,6 +39,66 @@ const mockPackages: UmrohPackage[] = [
 ];
 
 export default function ManagePackages() {
+  const [packages, setPackages] = useState<UmrohPackage[]>(initialPackages);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<UmrohPackage | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Form State
+  const [formData, setFormData] = useState<Partial<UmrohPackage>>({
+    name: '',
+    price: '',
+    departureDate: '',
+    facilities: [],
+    status: 'draft'
+  });
+
+  const handleOpenModal = (pkg?: UmrohPackage) => {
+    if (pkg) {
+      setEditingPackage(pkg);
+      setFormData(pkg);
+    } else {
+      setEditingPackage(null);
+      setFormData({
+        name: '',
+        price: '',
+        departureDate: '',
+        facilities: [],
+        status: 'draft'
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingPackage(null);
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingPackage) {
+      setPackages(packages.map(p => p.id === editingPackage.id ? { ...p, ...formData } as UmrohPackage : p));
+    } else {
+      const newPackage: UmrohPackage = {
+        ...formData,
+        id: Math.random().toString(36).substr(2, 9),
+      } as UmrohPackage;
+      setPackages([...packages, newPackage]);
+    }
+    handleCloseModal();
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus paket ini?')) {
+      setPackages(packages.filter(p => p.id !== id));
+    }
+  };
+
+  const filteredPackages = packages.filter(p => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="p-4 md:p-8">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
@@ -46,7 +106,10 @@ export default function ManagePackages() {
           <h2 className="text-xl md:text-2xl font-bold text-slate-800">Kelola Paket Umroh</h2>
           <p className="text-sm md:text-base text-slate-500">Atur daftar paket perjalanan umroh yang tersedia.</p>
         </div>
-        <button className="w-full sm:w-auto bg-primary text-white px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all">
+        <button 
+          onClick={() => handleOpenModal()}
+          className="w-full sm:w-auto bg-primary text-white px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all"
+        >
           <Plus size={20} />
           Tambah Paket
         </button>
@@ -59,6 +122,8 @@ export default function ManagePackages() {
             <input 
               type="text" 
               placeholder="Cari nama paket..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
             />
           </div>
@@ -83,7 +148,7 @@ export default function ManagePackages() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {mockPackages.map((pkg, index) => (
+              {filteredPackages.map((pkg, index) => (
                 <motion.tr 
                   key={pkg.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -121,10 +186,16 @@ export default function ManagePackages() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end items-center gap-2">
-                      <button className="p-2 text-slate-400 hover:text-primary hover:bg-primary-soft rounded-lg transition-all">
+                      <button 
+                        onClick={() => handleOpenModal(pkg)}
+                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary-soft rounded-lg transition-all"
+                      >
                         <Edit2 size={16} />
                       </button>
-                      <button className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
+                      <button 
+                        onClick={() => handleDelete(pkg.id)}
+                        className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                      >
                         <Trash2 size={16} />
                       </button>
                       <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all">
@@ -139,13 +210,117 @@ export default function ManagePackages() {
         </div>
         
         <div className="p-6 border-t border-slate-50 flex justify-between items-center text-sm text-slate-500">
-          <p>Menampilkan {mockPackages.length} paket</p>
+          <p>Menampilkan {filteredPackages.length} paket</p>
           <div className="flex gap-2">
             <button className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50" disabled>Previous</button>
             <button className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50">Next</button>
           </div>
         </div>
       </div>
+
+      {/* Modal Form */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleCloseModal}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h3 className="text-lg font-bold text-slate-800">
+                  {editingPackage ? 'Edit Paket Umroh' : 'Tambah Paket Baru'}
+                </h3>
+                <button onClick={handleCloseModal} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg transition-all">
+                  <X size={20} />
+                </button>
+              </div>
+              <form onSubmit={handleSave} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Nama Paket</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    placeholder="Contoh: Paket Ramadhan Gold"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Harga</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      placeholder="Contoh: Rp 35.000.000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Tanggal Keberangkatan</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={formData.departureDate}
+                      onChange={(e) => setFormData({ ...formData, departureDate: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      placeholder="Contoh: 15 Mar 2026"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Status</label>
+                  <select 
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  >
+                    <option value="active">Tersedia</option>
+                    <option value="full">Penuh</option>
+                    <option value="draft">Draft</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Fasilitas (Pisahkan dengan koma)</label>
+                  <input 
+                    type="text" 
+                    value={formData.facilities?.join(', ')}
+                    onChange={(e) => setFormData({ ...formData, facilities: e.target.value.split(',').map(f => f.trim()) })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    placeholder="Contoh: Hotel *5, Makan 3x, Visa"
+                  />
+                </div>
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl font-bold hover:bg-primary-dark transition-all shadow-lg shadow-primary/20"
+                  >
+                    Simpan Paket
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
